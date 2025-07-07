@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>진안군 장터 - 지도</title>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_APP_KEY&libraries=services,clusterer,drawing"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            overflow: hidden;
+        }
+
+        /* 헤더 스타일 */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            color: #333;
+            flex: 1;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #FEE500;
+            color: #191919;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: #FDD835;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        /* 지도 컨테이너 */
+        .map-container {
+            position: fixed;
+            top: 60px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 검색 바 */
+        .search-bar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 10;
+        }
+
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .search-icon {
+            width: 20px;
+            height: 20px;
+            opacity: 0.5;
+        }
+
+        /* 카테고리 필터 */
+        .category-filter {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+            overflow-x: auto;
+            max-width: 90%;
+            padding-bottom: 10px;
+        }
+
+        .category-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .category-btn.active {
+            background: #FEE500;
+            border-color: #FEE500;
+            font-weight: 500;
+        }
+
+        /* 사이드 컨트롤 패널 */
+        .control-panel {
+            position: absolute;
+            bottom: 120px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .control-btn.active {
+            background: #FEE500;
+        }
+
+        .control-btn .badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #FF3B30;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 히트맵 범례 */
+        .heatmap-legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 10;
+        }
+
+        .heatmap-legend.active {
+            display: block;
+        }
+
+        .legend-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .legend-scale {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-gradient {
+            width: 100px;
+            height: 10px;
+            background: linear-gradient(to right, #0000FF, #00FF00, #FFFF00, #FF0000);
+            border-radius: 5px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        /* 상점 정보 팝업 */
+        .store-popup {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            z-index: 100;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+        }
+
+        .store-popup.active {
+            transform: translateY(0);
+        }
+
+        .popup-handle {
+            width: 40px;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 0 auto 20px;
+        }
+
+        .store-info {
+            display: flex;
+            gap: 20px;
+            align-items: start;
+        }
+
+        .store-image {
+            width: 100px;
+            height: 100px;
+            border-radius: 12px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .store-details {
+            flex: 1;
+        }
+
+        .store-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .store-name {
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .store-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .store-status.open {
+            background: #34C759;
+            color: white;
+        }
+
+        .store-status.closed {
+            background: #FF3B30;
+            color: white;
+        }
+
+        .store-status.busy {
+            background: #FF9500;
+            color: white;
+        }
+
+        .store-category {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .store-rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .rating-stars {
+            color: #FEE500;
+        }
+
+        .store-distance {
+            color: #0084FF;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .store-waiting {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .waiting-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        .store-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .action-btn.primary {
+            background: #FEE500;
+            color: #191919;
+            grid-column: span 2;
+        }
+
+        .action-btn.secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .action-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* 길찾기 정보 패널 */
+        .route-panel {
+            position: absolute;
+            top: 150px;
+            left: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 10;
+            max-width: 300px;
+        }
+
+        .route-panel.active {
+            display: block;
+        }
+
+        .route-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .route-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .route-close {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            opacity: 0.5;
+        }
+
+        .route-info {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
+        .route-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .route-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #0084FF;
+        }
+
+        .route-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .route-modes {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .mode-btn.active {
+            background: #0084FF;
+            color: white;
+            border-color: #0084FF;
+        }
+
+        /* 즐겨찾기 리스트 */
+        .favorites-panel {
+            position: absolute;
+            top: 150px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 10;
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .favorites-panel.active {
+            display: block;
+        }
+
+        .favorites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .favorites-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .favorite-item:hover {
+            background: #f5f5f5;
+        }
+
+        .favorite-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #FEE500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .favorite-info {
+            flex: 1;
+        }
+
+        .favorite-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .favorite-category {
+            font-size: 12px;
+            color: #666;
+        }
+
+        /* 실시간 알림 */
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(400px);
+            transition: transform 0.3s ease-out;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification-icon {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .notification-message {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 커스텀 마커 스타일 */
+        .custom-marker {
+            background: white;
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .custom-marker::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 8px solid white;
+        }
+
+        .custom-marker.active {
+            background: #FEE500;
+        }
+
+        .custom-marker.active::after {
+            border-top-color: #FEE500;
+        }
+
+        .custom-marker.favorite {
+            border: 2px solid #FF3B30;
+        }
+
+        /* 로딩 스피너 */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #FEE500;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 18px;
+            }
+
+            .search-bar {
+                width: 85%;
+            }
+
+            .store-info {
+                flex-direction: column;
+            }
+
+            .store-image {
+                width: 100%;
+                height: 200px;
+            }
+
+            .route-panel,
+            .favorites-panel {
+                max-width: calc(100vw - 40px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <div class="header">
+        <h1>진안군 장터 지도</h1>
+        <div class="header-buttons">
+            <button class="btn btn-secondary" onclick="toggleListView()">목록보기</button>
+            <button class="btn btn-primary" onclick="showMyStore()">내 상점</button>
+        </div>
+    </div>
+
+    <!-- 지도 컨테이너 -->
+    <div class="map-container">
+        <div id="map"></div>
+        
+        <!-- 검색 바 -->
+        <div class="search-bar">
+            <svg class="search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input type="text" class="search-input" placeholder="상점 검색..." id="searchInput">
+        </div>
+
+        <!-- 카테고리 필터 -->
+        <div class="category-filter">
+            <button class="category-btn active" data-category="all">전체</button>
+            <button class="category-btn" data-category="restaurant">음식점</button>
+            <button class="category-btn" data-category="cafe">카페</button>
+            <button class="category-btn" data-category="mart">마트</button>
+            <button class="category-btn" data-category="beauty">미용</button>
+            <button class="category-btn" data-category="etc">기타</button>
+        </div>
+
+        <!-- 사이드 컨트롤 패널 -->
+        <div class="control-panel">
+            <div class="control-btn" onclick="getCurrentLocation()" title="현재 위치">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </div>
+            <div class="control-btn" onclick="toggleHeatmap()" title="히트맵">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+            </div>
+            <div class="control-btn" onclick="toggleFavorites()" title="즐겨찾기">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                </svg>
+                <span class="badge" id="favoritesCount">0</span>
+            </div>
+            <div class="control-btn" onclick="toggleRoute()" title="길찾기">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- 히트맵 범례 -->
+        <div class="heatmap-legend" id="heatmapLegend">
+            <div class="legend-title">방문자 밀도</div>
+            <div class="legend-scale">
+                <div class="legend-gradient"></div>
+            </div>
+            <div class="legend-labels">
+                <span>낮음</span>
+                <span>높음</span>
+            </div>
+        </div>
+
+        <!-- 길찾기 정보 패널 -->
+        <div class="route-panel" id="routePanel">
+            <div class="route-header">
+                <div class="route-title">길찾기</div>
+                <svg class="route-close" onclick="closeRoute()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+            <div class="route-info">
+                <div class="route-item">
+                    <div class="route-value" id="routeDistance">0km</div>
+                    <div class="route-label">거리</div>
+                </div>
+                <div class="route-item">
+                    <div class="route-value" id="routeTime">0분</div>
+                    <div class="route-label">예상 시간</div>
+                </div>
+            </div>
+            <div class="route-modes">
+                <button class="mode-btn active" data-mode="walk">도보</button>
+                <button class="mode-btn" data-mode="car">자동차</button>
+                <button class="mode-btn" data-mode="transit">대중교통</button>
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="startNavigation()">네비게이션 시작</button>
+        </div>
+
+        <!-- 즐겨찾기 패널 -->
+        <div class="favorites-panel" id="favoritesPanel">
+            <div class="favorites-header">
+                <div class="favorites-title">즐겨찾기</div>
+                <svg class="route-close" onclick="closeFavorites()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </div>
+            <div id="favoritesList"></div>
+        </div>
+
+        <!-- 로딩 스피너 -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <!-- 상점 정보 팝업 -->
+    <div class="store-popup" id="storePopup">
+        <div class="popup-handle"></div>
+        <div class="store-info">
+            <img src="https://via.placeholder.com/100" alt="상점 이미지" class="store-image" id="storeImage">
+            <div class="store-details">
+                <div class="store-header">
+                    <h2 class="store-name" id="storeName">상점명</h2>
+                    <span class="store-status open" id="storeStatus">영업중</span>
+                </div>
+                <p class="store-category" id="storeCategory">카테고리</p>
+                <div class="store-rating">
+                    <span class="rating-stars" id="ratingStars">★★★★☆</span>
+                    <span id="ratingScore">4.5</span>
+                    <span id="reviewCount">(123)</span>
+                </div>
+                <p class="store-distance" id="storeDistance">500m</p>
+                <div class="store-waiting" id="storeWaiting">
+                    <svg class="waiting-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>현재 대기: <strong id="waitingCount">5</strong>팀</span>
+                </div>
+            </div>
+        </div>
+        <div class="store-actions">
+            <button class="action-btn secondary" onclick="callStore()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                </svg>
+                전화
+            </button>
+            <button class="action-btn secondary" onclick="showRoute()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+                길찾기
+            </button>
+            <button class="action-btn secondary" onclick="toggleFavorite()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" id="favoriteIcon">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                </svg>
+                즐겨찾기
+            </button>
+            <button class="action-btn primary" onclick="makeReservation()">예약하기</button>
+        </div>
+    </div>
+
+    <!-- 실시간 알림 -->
+    <div class="notification" id="notification">
+        <svg class="notification-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+        </svg>
+        <div class="notification-content">
+            <div class="notification-title" id="notificationTitle">알림</div>
+            <div class="notification-message" id="notificationMessage">메시지</div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let map;
+        let clusterer;
+        let markers = [];
+        let currentPosition = null;
+        let selectedMarker = null;
+        let stores = [];
+        let heatmap = null;
+        let routePolyline = null;
+        let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+        let ws = null;
+
+        // 샘플 상점 데이터 (실제로는 API에서 가져옴)
+        const sampleStores = [
+            {
+                id: 1,
+                name: "진안 한우 명가",
+                category: "restaurant",
+                categoryName: "음식점",
+                lat: 35.7918,
+                lng: 127.4260,
+                rating: 4.8,
+                reviewCount: 156,
+                image: "https://via.placeholder.com/100",
+                phone: "063-123-4567",
+                status: "open",
+                waitingCount: 5,
+                popularity: 80
+            },
+            {
+                id: 2,
+                name: "마이산 카페",
+                category: "cafe",
+                categoryName: "카페",
+                lat: 35.7925,
+                lng: 127.4270,
+                rating: 4.5,
+                reviewCount: 89,
+                image: "https://via.placeholder.com/100",
+                phone: "063-234-5678",
+                status: "open",
+                waitingCount: 2,
+                popularity: 60
+            },
+            {
+                id: 3,
+                name: "진안 농산물 직매장",
+                category: "mart",
+                categoryName: "마트",
+                lat: 35.7910,
+                lng: 127.4255,
+                rating: 4.6,
+                reviewCount: 234,
+                image: "https://via.placeholder.com/100",
+                phone: "063-345-6789",
+                status: "busy",
+                waitingCount: 10,
+                popularity: 90
+            },
+            {
+                id: 4,
+                name: "홍삼 스파",
+                category: "beauty",
+                categoryName: "미용",
+                lat: 35.7935,
+                lng: 127.4280,
+                rating: 4.7,
+                reviewCount: 67,
+                image: "https://via.placeholder.com/100",
+                phone: "063-456-7890",
+                status: "closed",
+                waitingCount: 0,
+                popularity: 40
+            },
+            {
+                id: 5,
+                name: "진안 전통 찻집",
+                category: "cafe",
+                categoryName: "카페",
+                lat: 35.7905,
+                lng: 127.4245,
+                rating: 4.9,
+                reviewCount: 201,
+                image: "https://via.placeholder.com/100",
+                phone: "063-567-8901",
+                status: "open",
+                waitingCount: 3,
+                popularity: 70
+            }
+        ];
+
+        // 지도 초기화
+        function initMap() {
+            const mapContainer = document.getElementById('map');
+            const mapOption = {
+                center: new kakao.maps.LatLng(35.7918, 127.4260), // 진안군 중심
+                level: 5
+            };
+
+            map = new kakao.maps.Map(mapContainer, mapOption);
+
+            // 클러스터러 생성
+            clusterer = new kakao.maps.MarkerClusterer({
+                map: map,
+                averageCenter: true,
+                minLevel: 7,
+                disableClickZoom: true,
+                styles: [{
+                    width : '60px',
+                    height : '60px',
+                    background: '#FEE500',
+                    borderRadius: '30px',
+                    color: '#191919',
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    lineHeight: '61px'
+                }]
+            });
+
+            // 지도 타입 컨트롤 추가
+            const mapTypeControl = new kakao.maps.MapTypeControl();
+            map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT);
+
+            // 줌 컨트롤 추가
+            const zoomControl = new kakao.maps.ZoomControl();
+            map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
+
+            // 클러스터러 클릭 이벤트
+            kakao.maps.event.addListener(clusterer, 'clusterclick', function(cluster) {
+                const level = map.getLevel()-2;
+                map.setLevel(level, {anchor: cluster.getCenter()});
+            });
+
+            // 지도 클릭 시 팝업 닫기
+            kakao.maps.event.addListener(map, 'click', function() {
+                closeStorePopup();
+            });
+
+            // 상점 마커 추가
+            loadStores();
+
+            // 현재 위치 가져오기
+            getCurrentLocation();
+
+            // WebSocket 연결
+            connectWebSocket();
+
+            // 즐겨찾기 카운트 업데이트
+            updateFavoritesCount();
+
+            // 로딩 완료
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // WebSocket 연결
+        function connectWebSocket() {
+            // 실제 환경에서는 적절한 WebSocket 서버 URL 사용
+            try {
+                ws = new WebSocket('wss://your-websocket-server.com');
+                
+                ws.onopen = function() {
+                    console.log('WebSocket 연결됨');
+                };
+
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    handleRealtimeUpdate(data);
+                };
+
+                ws.onclose = function() {
+                    console.log('WebSocket 연결 종료');
+                    // 재연결 로직
+                    setTimeout(connectWebSocket, 5000);
+                };
+
+                ws.onerror = function(error) {
+                    console.error('WebSocket 에러:', error);
+                };
+            } catch (error) {
+                console.log('WebSocket 연결 실패:', error);
+            }
+        }
+
+        // 실시간 업데이트 처리
+        function handleRealtimeUpdate(data) {
+            switch(data.type) {
+                case 'store_status':
+                    updateStoreStatus(data.storeId, data.status, data.waitingCount);
+                    break;
+                case 'new_review':
+                    showNotification('새 리뷰', `${data.storeName}에 새 리뷰가 등록되었습니다.`);
+                    break;
+                case 'promotion':
+                    showNotification('이벤트', data.message);
+                    break;
+            }
+        }
+
+        // 상점 상태 업데이트
+        function updateStoreStatus(storeId, status, waitingCount) {
+            const store = stores.find(s => s.id === storeId);
+            if (store) {
+                store.status = status;
+                store.waitingCount = waitingCount;
+                
+                // 선택된 상점이면 팝업 업데이트
+                if (selectedMarker && selectedMarker.store.id === storeId) {
+                    updateStorePopup(store);
+                }
+            }
+        }
+
+        // 알림 표시
+        function showNotification(title, message) {
+            const notification = document.getElementById('notification');
+            document.getElementById('notificationTitle').textContent = title;
+            document.getElementById('notificationMessage').textContent = message;
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 5000);
+        }
+
+        // 상점 데이터 로드 (실제로는 API 호출)
+        function loadStores() {
+            stores = sampleStores;
+            displayMarkers(stores);
+        }
+
+        // 마커 표시
+        function displayMarkers(storeList) {
+            // 기존 마커 제거
+            clusterer.clear();
+            markers = [];
+
+            storeList.forEach(store => {
+                const markerPosition = new kakao.maps.LatLng(store.lat, store.lng);
+                
+                // 즐겨찾기 여부 확인
+                const isFavorite = favorites.includes(store.id);
+                
+                // 커스텀 오버레이로 마커 생성
+                const content = `<div class="custom-marker ${isFavorite ? 'favorite' : ''}" id="marker-${store.id}">${store.name}</div>`;
+                
+                const customOverlay = new kakao.maps.CustomOverlay({
+                    position: markerPosition,
+                    content: content,
+                    yAnchor: 1.5
+                });
+
+                // 마커 생성
+                const marker = new kakao.maps.Marker({
+                    position: markerPosition
+                });
+
+                // 마커 클릭 이벤트
+                kakao.maps.event.addListener(marker, 'click', function() {
+                    selectStore(store, marker, customOverlay);
+                });
+
+                markers.push({
+                    marker: marker,
+                    overlay: customOverlay,
+                    store: store
+                });
+
+                clusterer.addMarker(marker);
+            });
+        }
+
+        // 상점 선택
+        function selectStore(store, marker, overlay) {
+            // 이전 선택 해제
+            if (selectedMarker) {
+                const prevOverlay = document.getElementById(`marker-${selectedMarker.store.id}`);
+                if (prevOverlay) {
+                    prevOverlay.classList.remove('active');
+                }
+            }
+
+            // 새로운 선택
+            selectedMarker = { store, marker, overlay };
+            const currentOverlay = document.getElementById(`marker-${store.id}`);
+            if (currentOverlay) {
+                currentOverlay.classList.add('active');
+            }
+
+            // 팝업 표시
+            showStorePopup(store);
+
+            // 지도 중심 이동
+            map.panTo(marker.getPosition());
+        }
+
+        // 상점 팝업 표시
+        function showStorePopup(store) {
+            const popup = document.getElementById('storePopup');
+            
+            updateStorePopup(store);
+            
+            // 팝업 표시
+            popup.classList.add('active');
+        }
+
+        // 상점 팝업 정보 업데이트
+        function updateStorePopup(store) {
+            // 상점 정보 업데이트
+            document.getElementById('storeImage').src = store.image;
+            document.getElementById('storeName').textContent = store.name;
+            document.getElementById('storeCategory').textContent = store.categoryName;
+            document.getElementById('ratingScore').textContent = store.rating;
+            document.getElementById('reviewCount').textContent = `(${store.reviewCount})`;
+            
+            // 상태 업데이트
+            const statusElement = document.getElementById('storeStatus');
+            statusElement.className = `store-status ${store.status}`;
+            statusElement.textContent = store.status === 'open' ? '영업중' : 
+                                       store.status === 'busy' ? '혼잡' : '영업종료';
+            
+            // 대기 정보
+            document.getElementById('waitingCount').textContent = store.waitingCount;
+            document.getElementById('storeWaiting').style.display = 
+                store.status === 'open' || store.status === 'busy' ? 'flex' : 'none';
+            
+            // 별점 표시
+            const stars = '★'.repeat(Math.floor(store.rating)) + '☆'.repeat(5 - Math.floor(store.rating));
+            document.getElementById('ratingStars').textContent = stars;
+            
+            // 거리 계산 (현재 위치가 있을 경우)
+            if (currentPosition) {
+                const distance = calculateDistance(
+                    currentPosition.getLat(),
+                    currentPosition.getLng(),
+                    store.lat,
+                    store.lng
+                );
+                document.getElementById('storeDistance').textContent = formatDistance(distance);
+            }
+            
+            // 즐겨찾기 상태
+            const isFavorite = favorites.includes(store.id);
+            const favoriteIcon = document.getElementById('favoriteIcon');
+            favoriteIcon.style.fill = isFavorite ? '#FEE500' : 'none';
+        }
+
+        // 팝업 닫기
+        function closeStorePopup() {
+            const popup = document.getElementById('storePopup');
+            popup.classList.remove('active');
+            
+            if (selectedMarker) {
+                const overlay = document.getElementById(`marker-${selectedMarker.store.id}`);
+                if (overlay) {
+                    overlay.classList.remove('active');
+                }
+                selectedMarker = null;
+            }
+        }
+
+        // 현재 위치 가져오기
+        function getCurrentLocation() {
+            const locationBtn = document.querySelector('.control-btn');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        currentPosition = new kakao.maps.LatLng(lat, lng);
+                        
+                        // 현재 위치 마커 표시
+                        displayCurrentLocation(currentPosition);
+                        
+                        // 지도 중심 이동
+                        map.setCenter(currentPosition);
+                        
+                        // 버튼 활성화
+                        locationBtn.classList.add('active');
+                        
+                        // 거리 기준으로 상점 정렬
+                        updateStoreDistances();
+                    },
+                    (error) => {
+                        alert('위치 정보를 가져올 수 없습니다.');
+                        locationBtn.classList.remove('active');
+                    }
+                );
+            } else {
+                alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
+            }
+        }
+
+        // 현재 위치 마커 표시
+        function displayCurrentLocation(position) {
+            // 기존 현재 위치 마커 제거
+            if (window.currentLocationMarker) {
+                window.currentLocationMarker.setMap(null);
+            }
+            
+            // 현재 위치 마커 생성
+            window.currentLocationMarker = new kakao.maps.Marker({
+                position: position,
+                map: map,
+                image: new kakao.maps.MarkerImage(
+                    'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzAwODRGRiI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgb3BhY2l0eT0iMC4zIi8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iNCIvPjwvc3ZnPg==',
+                    new kakao.maps.Size(24, 24),
+                    {offset: new kakao.maps.Point(12, 12)}
+                )
+            });
+        }
+
+        // 히트맵 토글
+        function toggleHeatmap() {
+            const btn = event.currentTarget;
+            const legend = document.getElementById('heatmapLegend');
+            
+            if (heatmap) {
+                heatmap.setMap(null);
+                heatmap = null;
+                btn.classList.remove('active');
+                legend.classList.remove('active');
+            } else {
+                // 히트맵 데이터 생성
+                const heatmapData = stores.map(store => ({
+                    location: new kakao.maps.LatLng(store.lat, store.lng),
+                    weight: store.popularity / 100
+                }));
+                
+                // 더미 데이터 추가 (실제로는 방문 로그 기반)
+                for (let i = 0; i < 50; i++) {
+                    heatmapData.push({
+                        location: new kakao.maps.LatLng(
+                            35.7918 + (Math.random() - 0.5) * 0.01,
+                            127.4260 + (Math.random() - 0.5) * 0.01
+                        ),
+                        weight: Math.random()
+                    });
+                }
+                
+                // 히트맵 생성 (카카오맵 API에서 지원시)
+                // 여기서는 시뮬레이션을 위한 코드
+                btn.classList.add('active');
+                legend.classList.add('active');
+                showNotification('히트맵', '인기 지역이 표시됩니다.');
+            }
+        }
+
+        // 즐겨찾기 토글
+        function toggleFavorite() {
+            if (!selectedMarker) return;
+            
+            const storeId = selectedMarker.store.id;
+            const index = favorites.indexOf(storeId);
+            
+            if (index > -1) {
+                favorites.splice(index, 1);
+                showNotification('즐겨찾기', '즐겨찾기에서 제거되었습니다.');
+            } else {
+                favorites.push(storeId);
+                showNotification('즐겨찾기', '즐겨찾기에 추가되었습니다.');
+            }
+            
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            updateFavoritesCount();
+            displayMarkers(stores); // 마커 재표시
+            updateStorePopup(selectedMarker.store); // 팝업 업데이트
+        }
+
+        // 즐겨찾기 패널 토글
+        function toggleFavorites() {
+            const panel = document.getElementById('favoritesPanel');
+            const isActive = panel.classList.contains('active');
+            
+            if (isActive) {
+                panel.classList.remove('active');
+            } else {
+                showFavorites();
+                panel.classList.add('active');
+            }
+        }
+
+        // 즐겨찾기 목록 표시
+        function showFavorites() {
+            const list = document.getElementById('favoritesList');
+            const favoriteStores = stores.filter(store => favorites.includes(store.id));
+            
+            if (favoriteStores.length === 0) {
+                list.innerHTML = '<p style="text-align: center; color: #666; margin-top: 20px;">즐겨찾기한 상점이 없습니다.</p>';
+                return;
+            }
+            
+            list.innerHTML = favoriteStores.map(store => `
+                <div class="favorite-item" onclick="selectFavoriteStore(${store.id})">
+                    <div class="favorite-icon">
+                        <svg width="24" height="24" fill="#191919" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <div class="favorite-info">
+                        <div class="favorite-name">${store.name}</div>
+                        <div class="favorite-category">${store.categoryName}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 즐겨찾기 상점 선택
+        function selectFavoriteStore(storeId) {
+            const marker = markers.find(m => m.store.id === storeId);
+            if (marker) {
+                selectStore(marker.store, marker.marker, marker.overlay);
+                closeFavorites();
+            }
+        }
+
+        // 즐겨찾기 카운트 업데이트
+        function updateFavoritesCount() {
+            document.getElementById('favoritesCount').textContent = favorites.length;
+        }
+
+        // 즐겨찾기 패널 닫기
+        function closeFavorites() {
+            document.getElementById('favoritesPanel').classList.remove('active');
+        }
+
+        // 길찾기 토글
+        function toggleRoute() {
+            if (!selectedMarker) {
+                alert('먼저 상점을 선택해주세요.');
+                return;
+            }
+            
+            showRoute();
+        }
+
+        // 길찾기 표시
+        function showRoute() {
+            if (!currentPosition) {
+                alert('현재 위치를 먼저 확인해주세요.');
+                getCurrentLocation();
+                return;
+            }
+            
+            const panel = document.getElementById('routePanel');
+            panel.classList.add('active');
+            
+            // 기본 도보 경로 표시
+            showRouteMode('walk');
+        }
+
+        // 경로 모드 변경
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                showRouteMode(this.dataset.mode);
+            });
+        });
+
+        // 경로 표시
+        function showRouteMode(mode) {
+            if (!selectedMarker || !currentPosition) return;
+            
+            // 이전 경로 제거
+            if (routePolyline) {
+                routePolyline.setMap(null);
+            }
+            
+            const start = currentPosition;
+            const end = new kakao.maps.LatLng(selectedMarker.store.lat, selectedMarker.store.lng);
+            
+            // 거리 계산
+            const distance = calculateDistance(
+                start.getLat(), start.getLng(),
+                end.getLat(), end.getLng()
+            );
+            
+            // 예상 시간 계산
+            let time;
+            switch(mode) {
+                case 'walk':
+                    time = Math.round(distance / 1000 * 12); // 5km/h
+                    break;
+                case 'car':
+                    time = Math.round(distance / 1000 * 2); // 30km/h
+                    break;
+                case 'transit':
+                    time = Math.round(distance / 1000 * 3); // 20km/h
+                    break;
+            }
+            
+            // UI 업데이트
+            document.getElementById('routeDistance').textContent = formatDistance(distance);
+            document.getElementById('routeTime').textContent = `${time}분`;
+            
+            // 경로 폴리라인 생성 (실제로는 경로 API 사용)
+            const path = [start, end];
+            
+            routePolyline = new kakao.maps.Polyline({
+                path: path,
+                strokeWeight: 5,
+                strokeColor: '#0084FF',
+                strokeOpacity: 0.8,
+                strokeStyle: 'solid'
+            });
+            
+            routePolyline.setMap(map);
+            
+            // 경로가 모두 보이도록 지도 범위 조정
+            const bounds = new kakao.maps.LatLngBounds();
+            bounds.extend(start);
+            bounds.extend(end);
+            map.setBounds(bounds);
+        }
+
+        // 경로 패널 닫기
+        function closeRoute() {
+            document.getElementById('routePanel').classList.remove('active');
+            if (routePolyline) {
+                routePolyline.setMap(null);
+                routePolyline = null;
+            }
+        }
+
+        // 네비게이션 시작
+        function startNavigation() {
+            if (!selectedMarker) return;
+            
+            const mode = document.querySelector('.mode-btn.active').dataset.mode;
+            let url;
+            
+            switch(mode) {
+                case 'walk':
+                case 'transit':
+                    // 카카오맵 앱으로 연결
+                    url = `https://map.kakao.com/link/to/${selectedMarker.store.name},${selectedMarker.store.lat},${selectedMarker.store.lng}`;
+                    break;
+                case 'car':
+                    // 카카오내비 앱으로 연결
+                    url = `kakaonavi://navigate?name=${selectedMarker.store.name}&coord_x=${selectedMarker.store.lng}&coord_y=${selectedMarker.store.lat}`;
+                    break;
+            }
+            
+            window.open(url, '_blank');
+        }
+
+        // 거리 계산 (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // 지구 반경 (km)
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c * 1000; // 미터 단위로 변환
+        }
+
+        // 거리 포맷
+        function formatDistance(meters) {
+            if (meters < 1000) {
+                return Math.round(meters) + 'm';
+            } else {
+                return (meters / 1000).toFixed(1) + 'km';
+            }
+        }
+
+        // 상점 거리 업데이트
+        function updateStoreDistances() {
+            if (!currentPosition) return;
+            
+            stores.forEach(store => {
+                store.distance = calculateDistance(
+                    currentPosition.getLat(),
+                    currentPosition.getLng(),
+                    store.lat,
+                    store.lng
+                );
+            });
+            
+            // 거리순 정렬
+            stores.sort((a, b) => a.distance - b.distance);
+        }
+
+        // 카테고리 필터
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 활성 상태 변경
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                
+                // 필터링
+                const category = this.dataset.category;
+                const filtered = category === 'all' 
+                    ? stores 
+                    : stores.filter(store => store.category === category);
+                
+                displayMarkers(filtered);
+            });
+        });
+
+        // 검색 기능
+        const searchInput = document.getElementById('searchInput');
+        let searchTimeout;
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = this.value.toLowerCase();
+                if (query === '') {
+                    displayMarkers(stores);
+                } else {
+                    const filtered = stores.filter(store => 
+                        store.name.toLowerCase().includes(query) ||
+                        store.categoryName.toLowerCase().includes(query)
+                    );
+                    displayMarkers(filtered);
+                }
+            }, 300);
+        });
+
+        // 버튼 액션
+        function toggleListView() {
+            // Next.js 라우팅으로 이동
+            window.location.href = '/stores';
+        }
+
+        function showMyStore() {
+            // 로그인 확인 후 내 상점으로 이동
+            const myStoreId = localStorage.getItem('myStoreId');
+            if (myStoreId) {
+                const myStore = stores.find(s => s.id === parseInt(myStoreId));
+                if (myStore) {
+                    const marker = markers.find(m => m.store.id === myStore.id);
+                    if (marker) {
+                        selectStore(myStore, marker.marker, marker.overlay);
+                    }
+                }
+            } else {
+                alert('로그인이 필요합니다.');
+                window.location.href = '/login';
+            }
+        }
+
+        function callStore() {
+            if (selectedMarker && selectedMarker.store.phone) {
+                window.location.href = `tel:${selectedMarker.store.phone}`;
+            }
+        }
+
+        function makeReservation() {
+            if (selectedMarker) {
+                window.location.href = `/stores/${selectedMarker.store.id}/reservation`;
+            }
+        }
+
+        // 지도 초기화 실행
+        window.onload = function() {
+            // 카카오맵 API 로드 확인
+            if (typeof kakao !== 'undefined' && kakao.maps) {
+                initMap();
+            } else {
+                alert('카카오맵 API 키를 설정해주세요.');
+                document.getElementById('loading').style.display = 'none';
+            }
+        };
